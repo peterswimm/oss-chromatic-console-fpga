@@ -334,6 +334,11 @@ module top #(parameter ISSIMU=0)
     );
 
     wire [15:0] left, right;
+    // RetroPlug per-channel (4-stem) audio (1=Square1 2=Square2 3=Wave 4=Noise).
+    wire [15:0] ch1_left, ch1_right;
+    wire [15:0] ch2_left, ch2_right;
+    wire [15:0] ch3_left, ch3_right;
+    wire [15:0] ch4_left, ch4_right;
     wire [7:0]  volume;
     wire        hHeadphones;
 
@@ -481,6 +486,13 @@ module top #(parameter ISSIMU=0)
         .LINK_CLK(LINK_CLK),
         .LINK_IN(LINK_IN),
         .LINK_OUT(LINK_OUT),
+        // RetroPlug LSDj sync injection
+        .sync_active(sync_active),
+        .sync_serial_clk(sync_serial_clk),
+        .sync_serial_data(sync_serial_data),
+        // RetroPlug MIDI-out capture
+        .midiout_byte(midiout_byte),
+        .midiout_valid(midiout_valid),
 
         .lcd_on_int(lcd_on_int),
         .lcd_off_overwrite(lcd_off_overwrite),
@@ -490,6 +502,15 @@ module top #(parameter ISSIMU=0)
         // audio
         .left(left),
         .right(right),
+        // RetroPlug per-channel (4-stem) audio tap
+        .ch1_left(ch1_left),
+        .ch1_right(ch1_right),
+        .ch2_left(ch2_left),
+        .ch2_right(ch2_right),
+        .ch3_left(ch3_left),
+        .ch3_right(ch3_right),
+        .ch4_left(ch4_left),
+        .ch4_right(ch4_right),
         // video
         .LCD_INIT_DONE(LCD_INIT_DONE),
         .gb_lcd_clkena(gb_lcd_clkena),
@@ -630,6 +651,16 @@ module top #(parameter ISSIMU=0)
         .left(left),
         .right(right),
 
+        // RetroPlug per-channel (4-stem) audio for the 8ch UAC alt-setting
+        .ch1_left(ch1_left),
+        .ch1_right(ch1_right),
+        .ch2_left(ch2_left),
+        .ch2_right(ch2_right),
+        .ch3_left(ch3_left),
+        .ch3_right(ch3_right),
+        .ch4_left(ch4_left),
+        .ch4_right(ch4_right),
+
         .hLineValid(hr1),
         .hEnable(he1),
         .hFrameValid(vr1),
@@ -666,6 +697,17 @@ module top #(parameter ISSIMU=0)
     wire        uart_rx_val;
 
     wire menu_gated = qMenuInit&(CART_DET_sr[6:3]==4'b1111) ? BTN_MENU_ored : 1'b1;
+
+    // RetroPlug LSDj sync nets (driven by system_monitor RX 0xE + linksync).
+    wire [7:0] sync_mode;
+    wire [7:0] sync_byte;
+    wire       sync_valid;
+    wire       sync_active;
+    wire       sync_serial_clk;
+    wire       sync_serial_data;
+    // RetroPlug MIDI-out (emu linkcapture -> system_monitor TX channel 10).
+    wire [7:0] midiout_byte;
+    wire       midiout_valid;
 
     system_monitor u_system_monitor(
         .clk(gClk),
@@ -711,7 +753,33 @@ module top #(parameter ISSIMU=0)
         .uart_rx_val(uart_rx_val),
         .uart_tx_busy(uart_tx_busy),
         .uart_tx_data(uart_tx_data),
-        .uart_tx_val(uart_tx_val)
+        .uart_tx_val(uart_tx_val),
+        // RetroPlug LSDj sync (RX address 0xE)
+        .sync_mode(sync_mode),
+        .sync_byte(sync_byte),
+        .sync_valid(sync_valid),
+        // RetroPlug MIDI-out (TX channel 10)
+        .midiout_byte(midiout_byte),
+        .midiout_valid(midiout_valid)
+    );
+
+    // RetroPlug LSDj sync: shift the host-supplied bytes onto the GB link.
+    // Clocked in the gClk domain (same as system_monitor) so byte_valid stays
+    // in-domain; the slow (~8 kHz) sync_serial_* signals cross into the emu hClk
+    // serial mux (acceptable for a prototype -- add synchronizers before HW use).
+    linksync #(
+        .CLK_HZ(8388608),   // gClk
+        .SERIAL_HZ(8192)    // GB normal-speed serial clock
+    ) u_linksync (
+        .clk(gClk),
+        .reset(~lock_o),
+        .byte_in(sync_byte),
+        .byte_valid(sync_valid),
+        .enable(|sync_mode),   // sync_mode != off
+        .ready(),
+        .sync_active(sync_active),
+        .serial_clk(sync_serial_clk),
+        .serial_data(sync_serial_data)
     );
 
     UART2

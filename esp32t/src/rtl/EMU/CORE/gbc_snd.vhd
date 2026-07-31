@@ -29,7 +29,20 @@ entity gbc_snd is
         snd_left     : out std_logic_vector(15 downto 0);
         snd_right    : out std_logic_vector(15 downto 0);
 
-        -- savestates              
+        -- RetroPlug per-channel (4-stem) audio tap. Each channel's NR51-panned,
+        -- NR50-scaled stereo contribution, exposed individually so the host can
+        -- multi-track the four voices. The summed snd_left/snd_right mix above is
+        -- left byte-identical. Channels: 1=Square1 2=Square2 3=Wave 4=Noise.
+        ch1_left     : out std_logic_vector(15 downto 0);
+        ch1_right    : out std_logic_vector(15 downto 0);
+        ch2_left     : out std_logic_vector(15 downto 0);
+        ch2_right    : out std_logic_vector(15 downto 0);
+        ch3_left     : out std_logic_vector(15 downto 0);
+        ch3_right    : out std_logic_vector(15 downto 0);
+        ch4_left     : out std_logic_vector(15 downto 0);
+        ch4_right    : out std_logic_vector(15 downto 0);
+
+        -- savestates
         SaveStateBus_Din  : in     std_logic_vector(BUS_buswidth-1 downto 0);
         SaveStateBus_Adr  : in     std_logic_vector(BUS_busadr-1 downto 0);
         SaveStateBus_wren : in     std_logic;
@@ -1651,9 +1664,16 @@ begin
 
 	mixer : process (sq1_dac_out, sq2_dac_out, wav_dac_out, noi_dac_out, ch_map, ch_vol)
         variable snd_left_in  : signed(10 downto 0);
-        variable snd_right_in : signed(10 downto 0);   
+        variable snd_right_in : signed(10 downto 0);
         variable snd_tmp      : signed(15 downto 0);
 		variable wav_analog	  : signed(8 downto 0);
+		-- Per-channel (pre-sum) panned contributions, and the shared NR50 factors.
+		type ch_pan_t is array(0 to 3) of signed(10 downto 0);
+		variable ch_left      : ch_pan_t;
+		variable ch_right     : ch_pan_t;
+		variable vol_right    : signed(4 downto 0);
+		variable vol_left     : signed(4 downto 0);
+		variable ch_tmp       : signed(15 downto 0);
     begin
 		snd_left_in  := (others => '0');
         snd_right_in := (others => '0');
@@ -1670,20 +1690,41 @@ begin
 				when others => null;
 			end case;
 
+			-- Each channel's own NR51-panned value, kept isolated for the per-channel tap.
 			if ch_map(k) = '1' then
+				ch_right(k) := resize(wav_analog, 11);
 				snd_right_in := snd_right_in + wav_analog;
+			else
+				ch_right(k) := (others => '0');
 			end if;
 
 			if ch_map(k + 4) = '1' then
+				ch_left(k)  := resize(wav_analog, 11);
 				snd_left_in  := snd_left_in + wav_analog;
+			else
+				ch_left(k)  := (others => '0');
 			end if;
 		end loop;
-		
-		snd_tmp := snd_right_in * signed(("00" & ch_vol(2 downto 0)) + '1');
+
+		vol_right := signed(("00" & ch_vol(2 downto 0)) + '1');
+		vol_left  := signed(("00" & ch_vol(6 downto 4)) + '1');
+
+		snd_tmp := snd_right_in * vol_right;
         snd_right <= std_logic_vector(snd_tmp);
 
-        snd_tmp := snd_left_in * signed(("00" & ch_vol(6 downto 4)) + '1');
+        snd_tmp := snd_left_in * vol_left;
         snd_left <= std_logic_vector(snd_tmp);
+
+		-- Per-channel stems: same NR50 master-volume scaling as the mix, so a stem
+		-- has the same tone/level it contributes to snd_left/snd_right.
+		ch_tmp := ch_right(0) * vol_right; ch1_right <= std_logic_vector(ch_tmp);
+		ch_tmp := ch_left(0)  * vol_left;  ch1_left  <= std_logic_vector(ch_tmp);
+		ch_tmp := ch_right(1) * vol_right; ch2_right <= std_logic_vector(ch_tmp);
+		ch_tmp := ch_left(1)  * vol_left;  ch2_left  <= std_logic_vector(ch_tmp);
+		ch_tmp := ch_right(2) * vol_right; ch3_right <= std_logic_vector(ch_tmp);
+		ch_tmp := ch_left(2)  * vol_left;  ch3_left  <= std_logic_vector(ch_tmp);
+		ch_tmp := ch_right(3) * vol_right; ch4_right <= std_logic_vector(ch_tmp);
+		ch_tmp := ch_left(3)  * vol_left;  ch4_left  <= std_logic_vector(ch_tmp);
     end process;
 
 end SYN;

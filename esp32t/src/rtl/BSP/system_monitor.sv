@@ -44,7 +44,16 @@ module system_monitor(
     input               uart_rx_val,
     input               uart_tx_busy,
     output  [7:0]       uart_tx_data,
-    output              uart_tx_val
+    output              uart_tx_val,
+    // RetroPlug LSDj sync (MCU -> FPGA, RX address 0xE): a mode byte + one
+    // GB-serial byte to inject onto the Game Boy link via the linksync block.
+    output  reg [7:0]   sync_mode,
+    output  reg [7:0]   sync_byte,
+    output  reg         sync_valid,
+    // RetroPlug MIDI-out / MasterSync (FPGA -> MCU, TX channel 10): a GB-serial
+    // byte captured off the link by linkcapture, forwarded to the host.
+    input       [7:0]   midiout_byte,
+    input               midiout_valid
 );
 
     wire    [6:0]   rx_address;
@@ -93,6 +102,10 @@ module system_monitor(
     reg [3:0] lowerpowerOldBL;
     reg request_SystemStatusExtended = 1'b0;
 
+    // RetroPlug MIDI-out: latched captured byte + pending flag (TX channel 10).
+    reg [7:0] midiout_data = 8'd0;
+    reg       midiout_pending = 1'b0;
+
     reg [13:0] volt;
     wire       bat_is_LI;
 
@@ -102,11 +115,17 @@ module system_monitor(
             system_control <= 16'd0;
             MCU_buttons    <= 9'd0;
             request_gpd   <= 1'b0;
+            sync_mode      <= 8'd0;
+            sync_byte      <= 8'd0;
+            sync_valid     <= 1'b0;
+            midiout_data   <= 8'd0;
+            midiout_pending <= 1'b0;
         end else begin
             request_buttons              <= 1'b0;
             request_version              <= 1'b0;
             updateBrightness             <= 1'b0;
             request_SystemStatusExtended <= 1'b0;
+            sync_valid                   <= 1'b0;
 
             if (gHalfSecondEna) begin
                LCD_BACKLIGHT_INIT  <= 1'd1;
@@ -145,6 +164,12 @@ module system_monitor(
                 end
                 if(rx_address == 7'd2) begin
                     request_buttons <= 1'b1;
+                end
+                if(rx_address == 7'hE) begin
+                    // RetroPlug LSDj sync: {mode, serial byte}
+                    sync_mode  <= rx_data[15:8];
+                    sync_byte  <= rx_data[7:0];
+                    sync_valid <= 1'b1;
                 end
             end
 
@@ -190,6 +215,16 @@ module system_monitor(
 
             if (write_done && tx_channel == 9 && request_gpd) begin
                 request_gpd <= 1'b0; // Clear after sending once
+            end
+
+            // RetroPlug MIDI-out: clear the pending byte once TX channel 10 sends
+            // it (mirrors the request_gpd clear above), then latch a fresh capture.
+            if (write_done && tx_channel == 10 && midiout_pending) begin
+                midiout_pending <= 1'b0;
+            end
+            if (midiout_valid) begin
+                midiout_data    <= midiout_byte;
+                midiout_pending <= 1'b1;
             end
 
         end
@@ -389,15 +424,16 @@ module system_monitor(
     reg [13:0] version = {
         1'd0,  // 1 bit reserved
         1'd0,  // 1 bit debug,
-        6'd8,  // 6 bits minor version
-        6'd18  // 6 bits major version
+        6'd0,  // 6 bits minor version
+        6'd19  // 6 bits major version
     };
 
-    localparam  NUM_CH = 10;
+    localparam  NUM_CH = 11;
     wire [$clog2(NUM_CH)-1:0] tx_channel;
 
     wire [NUM_CH-1:0] channelsNewDataValid =
     {
+        midiout_pending,                              // ch10: RetroPlug MIDI-out
         request_gpd,                                  // Game Palette Data
         ~menuDisabled | request_SystemStatusExtended, // System Status Extended
         ~menuDisabled,                                // reserved
@@ -423,6 +459,7 @@ module system_monitor(
                               (tx_channel == 7) ? 8'd4 : // reserved
                               (tx_channel == 8) ? 8'd4 : // System Status Extended
                               (tx_channel == 9) ? 8'd8 : // BG Palette Data
+                              (tx_channel == 10) ? 8'd1 : // RetroPlug MIDI-out byte
                               8'd1;
 
     wire [7:0] tx_bytepos;
@@ -466,6 +503,9 @@ module system_monitor(
                              (tx_channel == 9 && tx_bytepos == 5) ? gpd[47:40] :
                              (tx_channel == 9 && tx_bytepos == 6) ? gpd[55:48] :
                              (tx_channel == 9 && tx_bytepos == 7) ? gpd[63:56] :
+
+                             (tx_channel == 10 && tx_bytepos == 0) ? midiout_data : // RetroPlug MIDI-out
+
                              8'd0;
 
     wire uartDisabled;

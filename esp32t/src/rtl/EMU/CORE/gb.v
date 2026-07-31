@@ -71,6 +71,16 @@ module gb (
     output [15:0] audio_l,
     output [15:0] audio_r,
 
+    // RetroPlug per-channel (4-stem) audio tap (1=Square1 2=Square2 3=Wave 4=Noise)
+    output [15:0] audio_ch1_l,
+    output [15:0] audio_ch1_r,
+    output [15:0] audio_ch2_l,
+    output [15:0] audio_ch2_r,
+    output [15:0] audio_ch3_l,
+    output [15:0] audio_ch3_r,
+    output [15:0] audio_ch4_l,
+    output [15:0] audio_ch4_r,
+
     // Megaduck?
     input megaduck,
 
@@ -493,8 +503,17 @@ gbc_snd audio (
 
    .snd_left        ( audio_l           ),
     .snd_right      ( audio_r           ),
-    
-  .SaveStateBus_Din  (SaveStateBus_Din ), 
+
+    .ch1_left       ( audio_ch1_l       ),
+    .ch1_right      ( audio_ch1_r       ),
+    .ch2_left       ( audio_ch2_l       ),
+    .ch2_right      ( audio_ch2_r       ),
+    .ch3_left       ( audio_ch3_l       ),
+    .ch3_right      ( audio_ch3_r       ),
+    .ch4_left       ( audio_ch4_l       ),
+    .ch4_right      ( audio_ch4_r       ),
+
+  .SaveStateBus_Din  (SaveStateBus_Din ),
   .SaveStateBus_Adr  (SaveStateBus_Adr ),
   .SaveStateBus_wren (SaveStateBus_wren),
   .SaveStateBus_rst  (SaveStateBus_rst ),
