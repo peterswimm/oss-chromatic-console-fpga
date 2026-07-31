@@ -1,3 +1,22 @@
+## v19.0
+
+### Note
+Proof-of-concept: brings RetroPlug music-production features to the Chromatic.
+Prototype RTL -- not yet synthesized or hardware-validated. Requires MCU
+firmware with the sync relay (oss-chromatic-console-mcu). See
+docs/retroplug-port/.
+
+### Added
+- Per-channel (4-stem) Game Boy audio tap: the four APU channels
+  (Square1/Square2/Wave/Noise) are exposed individually for multi-track capture.
+  The stereo speaker mix is unchanged; the 8-channel USB UAC alt-setting is
+  wired to the endpoint boundary but stays stereo until validated on hardware.
+- LSDj sync injector (linksync): shifts host-supplied LSDj serial bytes onto the
+  Game Boy link (external-clock master), driven by a new MCU->FPGA sync command
+  (UART RX address 0xE). Enables Ableton-Link / DAW-driven LSDj sync and mGB.
+- MIDI-out capture (linkcapture): deserializes the link when LSDj is the serial
+  master and reports bytes to the MCU on a new TX channel (MasterSync / MI.OUT).
+
 ## v18.8
 
 ### Changed
