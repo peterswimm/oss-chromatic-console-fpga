@@ -50,6 +50,11 @@ module emu_system_top
     input               sync_serial_clk,
     input               sync_serial_data,
 
+    // RetroPlug MIDI-out / MasterSync: bytes captured off the link when the core
+    // is the serial master (LSDj drives the clock), forwarded to the host.
+    output [7:0]        midiout_byte,
+    output              midiout_valid,
+
     output [15:0]       left,
     output [15:0]       right,
 
@@ -283,6 +288,17 @@ module emu_system_top
 
     wire serial_data_in = sync_active ? sync_serial_data : LINK_IN_r1;
     assign LINK_OUT = serial_data_out_r1;
+
+    // RetroPlug MIDI-out: deserialize the link when the core is the serial master.
+    linkcapture u_linkcapture (
+        .clk(hclk),
+        .reset(~reset_n),
+        .sc_int_clock2(sc_int_clock2),
+        .serial_clk_out(serial_clk_out),
+        .serial_data_out(serial_data_out),
+        .byte_out(midiout_byte),
+        .byte_valid(midiout_valid)
+    );
 
     wire [63:0] SAVE_out_Din  ;
     wire [63:0] SAVE_out_Dout ;

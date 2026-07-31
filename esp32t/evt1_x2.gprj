@@ -23,6 +23,7 @@
         <File path="src/rtl/BSP/mpmc.v" type="file.verilog" enable="1"/>
         <File path="src/rtl/BSP/polling_master.v" type="file.verilog" enable="1"/>
         <File path="src/rtl/BSP/qspi_slave.v" type="file.verilog" enable="1"/>
+        <File path="src/rtl/BSP/linkcapture.sv" type="file.verilog" enable="1"/>
         <File path="src/rtl/BSP/linksync.sv" type="file.verilog" enable="1"/>
         <File path="src/rtl/BSP/system_monitor.sv" type="file.verilog" enable="1"/>
         <File path="src/rtl/BSP/system_monitor_arbiter.sv" type="file.verilog" enable="1"/>

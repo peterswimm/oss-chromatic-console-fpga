@@ -74,21 +74,29 @@ end-to-end jitter (compare the injected clock's period stability against
 
 Do not pre-solve — flag and measure first.
 
-## USB-MIDI
+## MIDI over the CDC/UART transport (what the PoC builds)
 
-No MIDI exists in the design today, but the USB stack is a working composite device and
-`USB_AUDIO_MIDISTREAMING (0x03)` is already defined in `USB/USBUVCUART/usb_video/uac_defs.v:7`.
+MIDI rides the **same CDC → 0x8F-UART path as sync**, both directions — no new USB class is
+needed to demo mGB or MIDI-out, and it stays on the proven, low-risk transport.
 
-- **Interface:** add a USB-MIDI (MIDIStreaming) interface with a bulk IN + bulk OUT endpoint
-  (32-bit USB-MIDI event packets) to the composite config and the `endpt_sel` mux in
-  `usbuvcuart_top.v`, descriptors in `usb_descriptor_video.v` — the same way UAC/UVC/CDC are
-  added.
-- **Host → device (mGB / raw serial):** MIDI-OUT event bytes → GB serial in (into the serial
-  path at `emu_system_top.v:242-265`). Replicates RetroPlug's `mgb` role (forwards every MIDI
-  byte verbatim into GB serial).
-- **Device → host (MIDI out):** GB serial-out bytes → MIDI-IN event packets. Replicates
-  RetroPlug's `ArduinoboyMaster` MI.OUT decoder and `masterSync`.
+- **Host → device (mGB / raw serial): already covered by `linksync`.** The injector shifts
+  *any* byte onto the GB link, so RetroPlug's `mgb` role (which forwards every MIDI byte
+  verbatim into GB serial) simply sends its bytes down the same RX-address-0xE path. No extra
+  RTL — mGB is a mode of the existing sync stream.
+- **Device → host (MIDI-out / MasterSync): `linkcapture.sv` (new).** When the core is the
+  serial *master* (`sc_int_clock2` = 1, LSDj driving the clock), `linkcapture` deserializes
+  `serial_clk_out`/`serial_data_out` into bytes and hands them to `system_monitor`, which
+  forwards them to the MCU on a **new FPGA→MCU TX channel 10** (following the existing
+  `request_gpd` clear-on-send pattern). The MCU relays them over CDC to RetroPlug, which
+  decodes them exactly like its `ArduinoboyMaster` MI.OUT / `masterSync` roles.
+  Instantiated in `emu_system_top.v`; wired through `top.v`.
 
-USB-MIDI and the CDC sync path are complementary: sync can run over either. The PoC uses CDC
-(no new USB class needed to demo sync); USB-MIDI is the cleaner long-term transport and enables
-mGB.
+## Native USB-MIDI class (deferred — future work)
+
+A proper USB-MIDI (MIDIStreaming) interface — bulk IN/OUT endpoints of 32-bit USB-MIDI event
+packets added to the composite config + `endpt_sel` mux in `usbuvcuart_top.v` and the
+descriptors in `usb_descriptor_video.v` (the `USB_AUDIO_MIDISTREAMING` constant already exists
+at `uac_defs.v:7`) — is the cleaner long-term transport and lets a DAW see the Chromatic as a
+native MIDI device. It is **not built in the PoC**: it is a high-risk change to a working USB
+descriptor/enumeration path that cannot be validated without hardware, and the CDC transport
+already carries MIDI both ways. Deferred deliberately, same posture as the 8ch UAC widening.

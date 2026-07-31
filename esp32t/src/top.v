@@ -490,6 +490,9 @@ module top #(parameter ISSIMU=0)
         .sync_active(sync_active),
         .sync_serial_clk(sync_serial_clk),
         .sync_serial_data(sync_serial_data),
+        // RetroPlug MIDI-out capture
+        .midiout_byte(midiout_byte),
+        .midiout_valid(midiout_valid),
 
         .lcd_on_int(lcd_on_int),
         .lcd_off_overwrite(lcd_off_overwrite),
@@ -702,6 +705,9 @@ module top #(parameter ISSIMU=0)
     wire       sync_active;
     wire       sync_serial_clk;
     wire       sync_serial_data;
+    // RetroPlug MIDI-out (emu linkcapture -> system_monitor TX channel 10).
+    wire [7:0] midiout_byte;
+    wire       midiout_valid;
 
     system_monitor u_system_monitor(
         .clk(gClk),
@@ -751,7 +757,10 @@ module top #(parameter ISSIMU=0)
         // RetroPlug LSDj sync (RX address 0xE)
         .sync_mode(sync_mode),
         .sync_byte(sync_byte),
-        .sync_valid(sync_valid)
+        .sync_valid(sync_valid),
+        // RetroPlug MIDI-out (TX channel 10)
+        .midiout_byte(midiout_byte),
+        .midiout_valid(midiout_valid)
     );
 
     // RetroPlug LSDj sync: shift the host-supplied bytes onto the GB link.
