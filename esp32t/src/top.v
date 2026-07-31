@@ -486,6 +486,10 @@ module top #(parameter ISSIMU=0)
         .LINK_CLK(LINK_CLK),
         .LINK_IN(LINK_IN),
         .LINK_OUT(LINK_OUT),
+        // RetroPlug LSDj sync injection
+        .sync_active(sync_active),
+        .sync_serial_clk(sync_serial_clk),
+        .sync_serial_data(sync_serial_data),
 
         .lcd_on_int(lcd_on_int),
         .lcd_off_overwrite(lcd_off_overwrite),
@@ -691,6 +695,14 @@ module top #(parameter ISSIMU=0)
 
     wire menu_gated = qMenuInit&(CART_DET_sr[6:3]==4'b1111) ? BTN_MENU_ored : 1'b1;
 
+    // RetroPlug LSDj sync nets (driven by system_monitor RX 0xE + linksync).
+    wire [7:0] sync_mode;
+    wire [7:0] sync_byte;
+    wire       sync_valid;
+    wire       sync_active;
+    wire       sync_serial_clk;
+    wire       sync_serial_data;
+
     system_monitor u_system_monitor(
         .clk(gClk),
         .reset(~lock_o),
@@ -735,7 +747,30 @@ module top #(parameter ISSIMU=0)
         .uart_rx_val(uart_rx_val),
         .uart_tx_busy(uart_tx_busy),
         .uart_tx_data(uart_tx_data),
-        .uart_tx_val(uart_tx_val)
+        .uart_tx_val(uart_tx_val),
+        // RetroPlug LSDj sync (RX address 0xE)
+        .sync_mode(sync_mode),
+        .sync_byte(sync_byte),
+        .sync_valid(sync_valid)
+    );
+
+    // RetroPlug LSDj sync: shift the host-supplied bytes onto the GB link.
+    // Clocked in the gClk domain (same as system_monitor) so byte_valid stays
+    // in-domain; the slow (~8 kHz) sync_serial_* signals cross into the emu hClk
+    // serial mux (acceptable for a prototype -- add synchronizers before HW use).
+    linksync #(
+        .CLK_HZ(8388608),   // gClk
+        .SERIAL_HZ(8192)    // GB normal-speed serial clock
+    ) u_linksync (
+        .clk(gClk),
+        .reset(~lock_o),
+        .byte_in(sync_byte),
+        .byte_valid(sync_valid),
+        .enable(|sync_mode),   // sync_mode != off
+        .ready(),
+        .sync_active(sync_active),
+        .serial_clk(sync_serial_clk),
+        .serial_data(sync_serial_data)
     );
 
     UART2

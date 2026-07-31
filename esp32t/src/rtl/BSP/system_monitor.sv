@@ -44,7 +44,12 @@ module system_monitor(
     input               uart_rx_val,
     input               uart_tx_busy,
     output  [7:0]       uart_tx_data,
-    output              uart_tx_val
+    output              uart_tx_val,
+    // RetroPlug LSDj sync (MCU -> FPGA, RX address 0xE): a mode byte + one
+    // GB-serial byte to inject onto the Game Boy link via the linksync block.
+    output  reg [7:0]   sync_mode,
+    output  reg [7:0]   sync_byte,
+    output  reg         sync_valid
 );
 
     wire    [6:0]   rx_address;
@@ -102,11 +107,15 @@ module system_monitor(
             system_control <= 16'd0;
             MCU_buttons    <= 9'd0;
             request_gpd   <= 1'b0;
+            sync_mode      <= 8'd0;
+            sync_byte      <= 8'd0;
+            sync_valid     <= 1'b0;
         end else begin
             request_buttons              <= 1'b0;
             request_version              <= 1'b0;
             updateBrightness             <= 1'b0;
             request_SystemStatusExtended <= 1'b0;
+            sync_valid                   <= 1'b0;
 
             if (gHalfSecondEna) begin
                LCD_BACKLIGHT_INIT  <= 1'd1;
@@ -145,6 +154,12 @@ module system_monitor(
                 end
                 if(rx_address == 7'd2) begin
                     request_buttons <= 1'b1;
+                end
+                if(rx_address == 7'hE) begin
+                    // RetroPlug LSDj sync: {mode, serial byte}
+                    sync_mode  <= rx_data[15:8];
+                    sync_byte  <= rx_data[7:0];
+                    sync_valid <= 1'b1;
                 end
             end
 

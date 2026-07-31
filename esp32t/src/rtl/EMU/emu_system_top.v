@@ -43,6 +43,13 @@ module emu_system_top
     input               LINK_IN,
     output              LINK_OUT,
 
+    // RetroPlug LSDj sync injection (from the linksync block via top.v). When
+    // sync_active, the core's serial clock/data inputs are driven by linksync
+    // instead of the physical link connector, so LSDj syncs as an external slave.
+    input               sync_active,
+    input               sync_serial_clk,
+    input               sync_serial_data,
+
     output [15:0]       left,
     output [15:0]       right,
 
@@ -270,9 +277,11 @@ module emu_system_top
     end
 
     assign LINK_CLK = sc_int_clock2_r1 ? serial_clk_out_r1 : 1'bZ;
-    assign serial_clk_in = LINK_CLK_r1;
+    // RetroPlug sync: override the core's serial inputs with the injected stream
+    // when active; otherwise pass through the physical link connector.
+    assign serial_clk_in  = sync_active ? sync_serial_clk  : LINK_CLK_r1;
 
-    wire serial_data_in = LINK_IN_r1;
+    wire serial_data_in = sync_active ? sync_serial_data : LINK_IN_r1;
     assign LINK_OUT = serial_data_out_r1;
 
     wire [63:0] SAVE_out_Din  ;
