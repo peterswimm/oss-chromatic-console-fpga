@@ -389,8 +389,8 @@ module system_monitor(
     reg [13:0] version = {
         1'd0,  // 1 bit reserved
         1'd0,  // 1 bit debug,
-        6'd8,  // 6 bits minor version
-        6'd18  // 6 bits major version
+        6'd0,  // 6 bits minor version
+        6'd19  // 6 bits major version
     };
 
     localparam  NUM_CH = 10;

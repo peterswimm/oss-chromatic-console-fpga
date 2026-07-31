@@ -46,6 +46,17 @@ module emu_system_top
     output [15:0]       left,
     output [15:0]       right,
 
+    // RetroPlug per-channel (4-stem) audio out, each filtered like the mix
+    // (1=Square1 2=Square2 3=Wave 4=Noise).
+    output [15:0]       ch1_left,
+    output [15:0]       ch1_right,
+    output [15:0]       ch2_left,
+    output [15:0]       ch2_right,
+    output [15:0]       ch3_left,
+    output [15:0]       ch3_right,
+    output [15:0]       ch4_left,
+    output [15:0]       ch4_right,
+
     output lcd_on_int,
     output lcd_off_overwrite,
     
@@ -283,8 +294,14 @@ module emu_system_top
     end
     // synthesis translate_on
 
-    wire [15:0] snd_l;  
-    wire [15:0] snd_r;  
+    wire [15:0] snd_l;
+    wire [15:0] snd_r;
+
+    // Raw (pre-filter) per-channel stems from the APU tap.
+    wire [15:0] snd_ch1_l, snd_ch1_r;
+    wire [15:0] snd_ch2_l, snd_ch2_r;
+    wire [15:0] snd_ch3_l, snd_ch3_r;
+    wire [15:0] snd_ch4_l, snd_ch4_r;
 
     gb u_gb(
         .reset(gbreset),
@@ -335,6 +352,16 @@ module emu_system_top
         // audio
         .audio_l(snd_l),
         .audio_r(snd_r),
+
+        // RetroPlug per-channel tap
+        .audio_ch1_l(snd_ch1_l),
+        .audio_ch1_r(snd_ch1_r),
+        .audio_ch2_l(snd_ch2_l),
+        .audio_ch2_r(snd_ch2_r),
+        .audio_ch3_l(snd_ch3_l),
+        .audio_ch3_r(snd_ch3_r),
+        .audio_ch4_l(snd_ch4_l),
+        .audio_ch4_r(snd_ch4_r),
 
         // Megaduck?
         .megaduck(1'd0),
@@ -415,7 +442,32 @@ module emu_system_top
        .filter_l (left),
        .filter_r (right)
     );
-    
+
+    // RetroPlug per-channel (4-stem) audio: each stem gets its own copy of the
+    // same IIR + DC-blocker chain so it matches the tone of the summed mix.
+    // NOTE: 4 extra audio_filter instances -- confirm GW5A-25A utilization before
+    // committing; if tight, time-multiplex a single filter across the stems.
+    audio_filter u_audio_filter_ch1 (
+       .reset(~reset_n), .clk(hclk),
+       .core_l(snd_ch1_l), .core_r(snd_ch1_r),
+       .filter_l(ch1_left), .filter_r(ch1_right)
+    );
+    audio_filter u_audio_filter_ch2 (
+       .reset(~reset_n), .clk(hclk),
+       .core_l(snd_ch2_l), .core_r(snd_ch2_r),
+       .filter_l(ch2_left), .filter_r(ch2_right)
+    );
+    audio_filter u_audio_filter_ch3 (
+       .reset(~reset_n), .clk(hclk),
+       .core_l(snd_ch3_l), .core_r(snd_ch3_r),
+       .filter_l(ch3_left), .filter_r(ch3_right)
+    );
+    audio_filter u_audio_filter_ch4 (
+       .reset(~reset_n), .clk(hclk),
+       .core_l(snd_ch4_l), .core_r(snd_ch4_r),
+       .filter_l(ch4_left), .filter_r(ch4_right)
+    );
+
 // synthesis translate_off
    wire DDRAM_CLK            ;
    wire DDRAM_BUSY           ;

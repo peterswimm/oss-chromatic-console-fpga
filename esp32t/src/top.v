@@ -334,6 +334,11 @@ module top #(parameter ISSIMU=0)
     );
 
     wire [15:0] left, right;
+    // RetroPlug per-channel (4-stem) audio (1=Square1 2=Square2 3=Wave 4=Noise).
+    wire [15:0] ch1_left, ch1_right;
+    wire [15:0] ch2_left, ch2_right;
+    wire [15:0] ch3_left, ch3_right;
+    wire [15:0] ch4_left, ch4_right;
     wire [7:0]  volume;
     wire        hHeadphones;
 
@@ -490,6 +495,15 @@ module top #(parameter ISSIMU=0)
         // audio
         .left(left),
         .right(right),
+        // RetroPlug per-channel (4-stem) audio tap
+        .ch1_left(ch1_left),
+        .ch1_right(ch1_right),
+        .ch2_left(ch2_left),
+        .ch2_right(ch2_right),
+        .ch3_left(ch3_left),
+        .ch3_right(ch3_right),
+        .ch4_left(ch4_left),
+        .ch4_right(ch4_right),
         // video
         .LCD_INIT_DONE(LCD_INIT_DONE),
         .gb_lcd_clkena(gb_lcd_clkena),
@@ -629,6 +643,16 @@ module top #(parameter ISSIMU=0)
 
         .left(left),
         .right(right),
+
+        // RetroPlug per-channel (4-stem) audio for the 8ch UAC alt-setting
+        .ch1_left(ch1_left),
+        .ch1_right(ch1_right),
+        .ch2_left(ch2_left),
+        .ch2_right(ch2_right),
+        .ch3_left(ch3_left),
+        .ch3_right(ch3_right),
+        .ch4_left(ch4_left),
+        .ch4_right(ch4_right),
 
         .hLineValid(hr1),
         .hEnable(he1),

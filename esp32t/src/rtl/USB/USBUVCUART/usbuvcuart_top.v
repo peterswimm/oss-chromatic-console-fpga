@@ -30,6 +30,20 @@ module usbuvcuart_top(
     input [15:0]        left,
     input [15:0]        right,
 
+    // RetroPlug per-channel (4-stem) audio, for the future 8ch UAC alt-setting.
+    // Exposed to the composite device; see usbuac_ep for the packing integration
+    // point (currently the endpoint streams the stereo mix; enabling 8ch requires
+    // the descriptor + microframe-buffer changes documented in
+    // docs/retroplug-port/audio-multichannel.md and validated on hardware).
+    input [15:0]        ch1_left,
+    input [15:0]        ch1_right,
+    input [15:0]        ch2_left,
+    input [15:0]        ch2_right,
+    input [15:0]        ch3_left,
+    input [15:0]        ch3_right,
+    input [15:0]        ch4_left,
+    input [15:0]        ch4_right,
+
     output  [7:0]       debugs,
     inout               usb_dxp_io,
     inout               usb_dxn_io,
@@ -228,6 +242,11 @@ module usbuvcuart_top(
         .gClk(hClk),
         .left(left),
         .right(right),
+        // RetroPlug per-channel stems (consumed only when usbuac_ep CH==8)
+        .ch1_left(ch1_left), .ch1_right(ch1_right),
+        .ch2_left(ch2_left), .ch2_right(ch2_right),
+        .ch3_left(ch3_left), .ch3_right(ch3_right),
+        .ch4_left(ch4_left), .ch4_right(ch4_right),
         .uac_txpop(audio_txpop),
         .uac_txact(audio_txact),
         .uac_txdat(audio_txdat),
@@ -1376,6 +1395,15 @@ module usbuac_ep(
     input gClk,
     input [15:0] left,
     input [15:0] right,
+    // RetroPlug per-channel (4-stem) audio. Wired in for the 8ch UAC alt-setting.
+    input [15:0] ch1_left,
+    input [15:0] ch1_right,
+    input [15:0] ch2_left,
+    input [15:0] ch2_right,
+    input [15:0] ch3_left,
+    input [15:0] ch3_right,
+    input [15:0] ch4_left,
+    input [15:0] ch4_right,
     input uac_txpop,
     input uac_txact,
     output reg [7:0] uac_txdat,
@@ -1384,6 +1412,14 @@ module usbuac_ep(
 
     /* 2 bytes per ch, 2 ch, 6 smaples per microframe */
     localparam ASFREQ = 44100;
+    // CH = 2 -> stereo mix (the shipping behavior; datapath below is unchanged).
+    // CH = 8 -> RetroPlug 4-stem ChannelSplit. Flipping to 8 requires, together:
+    //   1. pack all 8 stems into `sample` (128-bit word, 16 bytes/sample) below,
+    //      widening the mem0/mem1 shift buffers and the write_ptr stride (4 -> 16);
+    //   2. bNrChannels 2 -> 8 + channel-config bitmap in usb_descriptor_video.v;
+    //   3. the AudioStreaming endpoint wMaxPacketSize (MAXBUFFER grows 24 -> 96 B);
+    //   4. hardware validation of microframe timing + host enumeration.
+    // See docs/retroplug-port/audio-multichannel.md. Kept at 2 until validated.
     localparam CH = 2;
     localparam BITS_PER_SUBSAMPLE = 16;
     localparam AFREQ = ASFREQ * BITS_PER_SUBSAMPLE * CH;
