@@ -1,0 +1,46 @@
+name: rtl-checks
+
+# Lightweight RTL verification for the RetroPlug-port modules. Full synthesis needs the Gowin
+# toolchain (not available in CI); this runs the per-module testbenches for the net-new Verilog
+# (the LSDj-sync injector + the MIDI-out capture) with Icarus Verilog, plus an advisory Verilator
+# lint. It does NOT elaborate the whole mixed VHDL+Verilog design.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  testbenches:
+    name: iverilog testbenches
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        run: sudo apt-get update && sudo apt-get install -y iverilog
+      - name: linksync (GB-serial injector)
+        working-directory: esp32t/src/rtl/BSP
+        run: |
+          iverilog -g2012 -o /tmp/linksync_tb tb/linksync_tb.v linksync.sv
+          vvp /tmp/linksync_tb | tee /tmp/linksync.out
+          grep -q PASS /tmp/linksync.out && ! grep -q FAIL /tmp/linksync.out
+      - name: linkcapture (MIDI-out capture)
+        working-directory: esp32t/src/rtl/BSP
+        run: |
+          iverilog -g2012 -o /tmp/linkcapture_tb tb/linkcapture_tb.v linkcapture.sv
+          vvp /tmp/linkcapture_tb | tee /tmp/linkcapture.out
+          grep -q PASS /tmp/linkcapture.out && ! grep -q FAIL /tmp/linkcapture.out
+
+  lint:
+    name: verilator lint (advisory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Verilator
+        run: sudo apt-get update && sudo apt-get install -y verilator
+      - name: Lint the net-new modules
+        working-directory: esp32t/src/rtl/BSP
+        # -Wno-fatal: report style/width warnings without failing the build (prototype RTL).
+        run: |
+          verilator --lint-only -Wall -Wno-fatal linksync.sv
+          verilator --lint-only -Wall -Wno-fatal linkcapture.sv
