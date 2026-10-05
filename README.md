@@ -1,13 +1,18 @@
-# Chromatic FPGA
-This repository houses the ModRetro Chromatic's FPGA design files.
+# RetroPlug FPGA Port
+This repository houses the RetroPlug-focused port of the ModRetro Chromatic FPGA design.
 
-For more information about the ModRetro Chromatic, please see visit [ModRetro.com](https://modretro.com/).
+It is a working fork of the upstream Chromatic FPGA tree, narrowed to the proof-of-concept work
+for multi-channel audio, MIDI, and LSDj sync described in `docs/retroplug-port/`.
+
+For more information about the ModRetro Chromatic hardware, please visit [ModRetro.com](https://modretro.com/).
 
 ## Setup
 
 ### Repository
 
-This project builds upon the open source work provided by the Game Boy `MiSTer` project. When checking out this repository, make sure to run the following command as this repository submodules the Game Boy `MiSTer` project.
+This project builds upon the open source work provided by the Game Boy `MiSTer` project. When
+checking out this repository, make sure to run the following command as this repository
+submodules the Game Boy `MiSTer` project.
 
 ```bash
 git submodule update --init --recursive

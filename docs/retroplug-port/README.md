@@ -19,7 +19,7 @@ MIDI, and tempo sync (via Ableton Link).
 
 | Repo | Role |
 |---|---|
-| `oss-chromatic-console-fpga` (this repo) | Per-channel audio tap, USB-MIDI, the GB-serial sync injector |
+| `retroplug-fpga-port` (this repo) | Per-channel audio tap, USB-MIDI, the GB-serial sync injector |
 | `oss-chromatic-console-mcu` | ESP32 firmware — relays the host sync stream to the FPGA |
 | `retroplug` | The host bridge: runs Ableton Link and streams LSDj sync over USB; also the behavioral reference + golden-vector source |
 
